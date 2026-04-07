@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitPlan AI - 你的個人減重助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen transition-colors duration-300">
+
+    <!-- 語言與登出導航欄 -->
+    <nav class="p-4 flex justify-between items-center max-w-4xl mx-auto">
+        <div class="text-2xl font-bold text-indigo-600">FitPlan AI</div>
+        <div class="flex gap-2">
+            <button onclick="setLanguage('zh')" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100">繁中</button>
+            <button onclick="setLanguage('en')" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100">EN</button>
+            <button id="logoutBtn" onclick="logout()" class="hidden px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100">Logout</button>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        
+        <!-- 會員登入/註冊區 -->
+        <div id="authSection" class="max-w-md mx-auto glass-card p-8 rounded-2xl shadow-xl fade-in">
+            <h2 id="authTitle" class="text-2xl font-bold mb-6 text-gray-800">歡迎回來</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblEmail">電子郵件</label>
+                    <input type="email" id="email" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblPass">密碼</label>
+                    <input type="password" id="password" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="flex flex-col gap-3 pt-4">
+                    <button onclick="handleAuth('login')" id="btnLogin" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">登入</button>
+                    <button onclick="showRegister()" id="btnGoReg" class="text-indigo-600 text-sm font-medium">還沒有帳號？前往註冊</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 身體數值輸入區 (僅在註冊或更新時顯示) -->
+        <div id="statsSection" class="hidden glass-card p-8 rounded-2xl shadow-xl fade-in">
+            <h2 id="statsTitle" class="text-2xl font-bold mb-6 text-gray-800">建立你的個人檔案</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblGender">性別</label>
+                    <select id="gender" class="w-full p-3 border rounded-lg">
+                        <option value="male" id="optMale">男</option>
+                        <option value="female" id="optFemale">女</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblAge">年齡</label>
+                    <input type="number" id="age" class="w-full p-3 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblHeight">身高 (cm)</label>
+                    <input type="number" id="height" class="w-full p-3 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblWeight">體重 (kg)</label>
+                    <input type="number" id="weight" class="w-full p-3 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblFreq">每週運動次數</label>
+                    <input type="number" id="frequency" min="0" max="7" class="w-full p-3 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1" id="lblWT">是否有重訓習慣？</label>
+                    <select id="hasWeightTrain" class="w-full p-3 border rounded-lg">
+                        <option value="yes" id="optYes">是</option>
+                        <option value="no" id="optNo">否</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="handleAuth('register')" id="btnSubmitStats" class="w-full mt-8 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">完成並生成計畫</button>
+        </div>
+
+        <!-- 結果展示區 -->
+        <div id="planSection" class="hidden space-y-6 fade-in">
+            <div class="glass-card p-8 rounded-2xl shadow-lg border-l-8 border-indigo-600">
+                <h2 id="planResultTitle" class="text-2xl font-bold mb-4 text-gray-800">專屬減重計畫</h2>
+                <p id="bmrResult" class="text-indigo-600 font-bold text-lg mb-6"></p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- 飲食菜單 -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 font-bold text-xl text-green-600">
+                            <span>🥗</span> <span id="titleDiet">飲食菜單建議</span>
+                        </div>
+                        <ul id="dietList" class="space-y-2 text-gray-700 list-disc pl-5"></ul>
+                    </div>
+
+                    <!-- 訓練內容 -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 font-bold text-xl text-orange-600">
+                            <span>💪</span> <span id="titleWorkout">訓練計畫內容</span>
+                        </div>
+                        <ul id="workoutList" class="space-y-2 text-gray-700 list-disc pl-5"></ul>
+                    </div>
+                </div>
+                <button onclick="recalculate()" class="mt-8 text-sm text-gray-500 underline" id="btnEdit">修改資料</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 設定與語言資料 ---
+        // 請將此處替換為你部署後的 Google Apps Script URL
+        const GAS_URL = ""; 
+
+        const i18n = {
+            zh: {
+                authTitle: "歡迎回來",
+                lblEmail: "電子郵件",
+                lblPass: "密碼",
+                btnLogin: "登入",
+                btnGoReg: "還沒有帳號？前往註冊",
+                statsTitle: "建立你的個人檔案",
+                lblGender: "性別",
+                optMale: "男",
+                optFemale: "女",
+                lblAge: "年齡",
+                lblHeight: "身高 (cm)",
+                lblWeight: "體重 (kg)",
+                lblFreq: "每週運動次數",
+                lblWT: "是否有重訓習慣？",
+                optYes: "是",
+                optNo: "否",
+                btnSubmitStats: "完成並生成計畫",
+                planResultTitle: "專屬減重計畫",
+                titleDiet: "飲食菜單建議",
+                titleWorkout: "訓練計畫內容",
+                btnEdit: "修改資料",
+                alertLoginFail: "登入失敗，請檢查電子郵件與密碼",
+                alertRegisterSuccess: "註冊成功！",
+                msgBMR: "你的預估每日消耗 (TDEE) 為: {tdee} 大卡。建議每日攝取: {target} 大卡。"
+            },
+            en: {
+                authTitle: "Welcome Back",
+                lblEmail: "Email",
+                lblPass: "Password",
+                btnLogin: "Login",
+                btnGoReg: "No account? Register here",
+                statsTitle: "Create Your Profile",
+                lblGender: "Gender",
+                optMale: "Male",
+                optFemale: "Female",
+                lblAge: "Age",
+                lblHeight: "Height (cm)",
+                lblWeight: "Weight (kg)",
+                lblFreq: "Workouts / Week",
+                lblWT: "Weight Training?",
+                optYes: "Yes",
+                optNo: "No",
+                btnSubmitStats: "Complete & Generate Plan",
+                planResultTitle: "Your Personal Plan",
+                titleDiet: "Dietary Suggestions",
+                titleWorkout: "Workout Program",
+                btnEdit: "Edit Profile",
+                alertLoginFail: "Login failed, check email/password",
+                alertRegisterSuccess: "Registration successful!",
+                msgBMR: "Your estimated TDEE: {tdee} kcal. Target intake: {target} kcal."
+            }
+        };
+
+        let currentLang = 'zh';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const t = i18n[lang];
+            Object.keys(t).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (el.tagName === 'INPUT' && el.type === 'button') el.value = t[id];
+                    else el.innerText = t[id];
+                }
+            });
+        }
+
+        // --- 核心邏輯 ---
+
+        function showRegister() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('statsSection').classList.remove('hidden');
+        }
+
+        async function handleAuth(action) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) return alert("Please fill all fields");
+
+            const userData = {
+                action: action,
+                email: email,
+                password: password,
+                gender: document.getElementById('gender').value,
+                age: document.getElementById('age').value,
+                height: document.getElementById('height').value,
+                weight: document.getElementById('weight').value,
+                frequency: document.getElementById('frequency').value,
+                hasWeightTrain: document.getElementById('hasWeightTrain').value
+            };
+
+            // 如果沒有 GAS URL，則進入模擬模式 (供測試介面用)
+            if (!GAS_URL) {
+                console.warn("GAS_URL is missing. Running in simulation mode.");
+                generatePlan(userData);
+                return;
+            }
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // 重要：處理跨網域
+                    cache: 'no-cache',
+                    body: JSON.stringify(userData)
+                });
+                
+                // 注意：no-cors 無法讀取 response body。
+                // 實務上正式開發會使用更複雜的 JSONP 或開放 CORS，
+                // 這裡假設操作成功。
+                if (action === 'login') {
+                    // 登入邏輯...
+                    generatePlan(userData);
+                } else {
+                    alert(i18n[currentLang].alertRegisterSuccess);
+                    generatePlan(userData);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function generatePlan(data) {
+            const h = parseFloat(data.height);
+            const w = parseFloat(data.weight);
+            const a = parseFloat(data.age);
+            const g = data.gender;
+            const freq = parseInt(data.frequency);
+            const wt = data.hasWeightTrain;
+
+            // BMR (Mifflin-St Jeor)
+            let bmr = (10 * w) + (6.25 * h) - (5 * a);
+            bmr = (g === 'male') ? bmr + 5 : bmr - 161;
+
+            // TDEE
+            const activityFactors = [1.2, 1.375, 1.46, 1.55, 1.725, 1.9];
+            const factor = activityFactors[Math.min(freq, 5)];
+            const tdee = Math.round(bmr * factor);
+            const target = tdee - 500; // 減重目標
+
+            // 切換畫面
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('statsSection').classList.add('hidden');
+            document.getElementById('planSection').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+
+            // 顯示 BMR/TDEE
+            const msg = i18n[currentLang].msgBMR.replace('{tdee}', tdee).replace('{target}', target);
+            document.getElementById('bmrResult').innerText = msg;
+
+            // 生成飲食菜單
+            const dietList = document.getElementById('dietList');
+            dietList.innerHTML = "";
+            const diets = currentLang === 'zh' ? 
+                ["每日攝取蛋白質量：" + (w * 1.8).toFixed(1) + "g", "澱粉優先選擇低 GI (糙米、地瓜)", "每餐必須包含兩份蔬菜", "避免含糖飲料與油炸物"] :
+                ["Daily Protein Goal: " + (w * 1.8).toFixed(1) + "g", "Focus on Low GI Carbs", "Two portions of greens per meal", "Avoid sugary drinks & fried food"];
+            diets.forEach(d => dietList.innerHTML += `<li>${d}</li>`);
+
+            // 生成訓練內容
+            const workoutList = document.getElementById('workoutList');
+            workoutList.innerHTML = "";
+            let workouts = [];
+            if (wt === 'yes') {
+                workouts = currentLang === 'zh' ? 
+                    ["建議每週安排 " + Math.max(freq, 3) + " 天重訓", "採用大肌肉群訓練 (深蹲、推舉)", "重訓後加入 15 分鐘低強度有氧", "確保 48 小時肌肉恢復時間"] :
+                    ["Schedule " + Math.max(freq, 3) + " days weight training", "Focus on compound movements", "15 min LISS cardio after weights", "Ensure 48h recovery for muscle groups"];
+            } else {
+                workouts = currentLang === 'zh' ? 
+                    ["建議以高強度間歇 (HIIT) 為主", "每週安排至少 3 次 30 分鐘有氧", "加入基礎徒手訓練 (伏地挺身、棒式)", "每日步數目標：10,000 步"] :
+                    ["Focus on HIIT sessions", "At least 3x 30min cardio weekly", "Basic bodyweight moves (Pushups, Plank)", "Daily step goal: 10,000"];
+            }
+            workouts.forEach(w => workoutList.innerHTML += `<li>${w}</li>`);
+        }
+
+        function recalculate() {
+            document.getElementById('planSection').classList.add('hidden');
+            document.getElementById('statsSection').classList.remove('hidden');
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        // 初始化
+        setLanguage('zh');
+    </script>
+</body>
+</html>
